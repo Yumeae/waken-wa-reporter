@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -10,18 +11,27 @@ import (
 	"time"
 
 	"github.com/MoYoez/waken-wa/internal/activity"
+	"github.com/MoYoez/waken-wa/internal/config"
 	"github.com/MoYoez/waken-wa/internal/platform/foreground"
 )
 
 func main() {
-	token := os.Getenv("WAKEN_API_TOKEN")
-	if token == "" {
-		log.Fatal("WAKEN_API_TOKEN is required")
+	setup := flag.Bool("setup", false, "run interactive setup (URL + API token), save, and exit")
+	flag.Parse()
+	if *setup {
+		path, err := config.DefaultFilePath()
+		if err != nil {
+			log.Fatal(err)
+		}
+		if _, _, err := config.RunWizard(path); err != nil {
+			log.Fatal(err)
+		}
+		return
 	}
 
-	baseURL := os.Getenv("WAKEN_BASE_URL")
-	if baseURL == "" {
-		baseURL = "http://localhost:3000"
+	baseURL, token, err := config.Resolve()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	device := os.Getenv("WAKEN_DEVICE")
