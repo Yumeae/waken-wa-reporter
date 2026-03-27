@@ -20,6 +20,9 @@ var STORAGE_KEY = "waken_wa_activity_simple_v1";
 var reportingRunning = false;
 var reportingThread = null;
 
+// Debug log toggle (see UI checkbox).
+var DEBUG_MODE = false;
+
 ui.layout(
   <vertical padding="12">
     <text text="Waken WA" textSize="20sp" textStyle="bold" />
@@ -52,6 +55,9 @@ ui.layout(
 
       <text text="心跳间隔（毫秒）" textSize="12sp" textColor="#888888" marginTop="6" />
       <input id="inHeartbeatMs" hint="前台不变时最长多久再上报，0=关闭，默认 60000" inputType="number" lines="1" />
+
+      <text text="调试" textSize="12sp" textColor="#888888" marginTop="8" />
+      <checkbox id="chkDebug" text="调试日志（log 面板输出详情）" marginTop="2" />
     </vertical>
 
     <horizontal marginTop="8">
@@ -211,6 +217,11 @@ function cfgToUi(c) {
   if (c.heartbeat_ms != null) {
     inputSet("inHeartbeatMs", String(c.heartbeat_ms));
   }
+  if (c.debug != null) {
+    ui.run(function () {
+      ui.chkDebug.setChecked(!!c.debug);
+    });
+  }
 }
 
 function parsePositiveIntMs(label, raw) {
@@ -278,6 +289,7 @@ function persistFromUi(requireToken) {
     generated_hash_key: h,
     poll_ms: POLL_MS,
     heartbeat_ms: HEARTBEAT_MS,
+    debug: !!(ui.chkDebug && ui.chkDebug.isChecked()),
   };
   saveCfgObj(row);
   return row;
@@ -291,6 +303,7 @@ function applyConfigFromSources() {
   API_TOKEN = u.api_token || trim(disk.api_token);
   DEVICE_NAME = u.device_name || trim(disk.device_name);
   applyIntervalSettingsFromUiAndDisk(disk);
+  DEBUG_MODE = !!(ui.chkDebug && ui.chkDebug.isChecked());
   var h = trim(disk.generated_hash_key);
   if (!h) {
     h = generateHashKey();
@@ -301,6 +314,7 @@ function applyConfigFromSources() {
       generated_hash_key: h,
       poll_ms: POLL_MS,
       heartbeat_ms: HEARTBEAT_MS,
+      debug: DEBUG_MODE,
     });
   }
   GENERATED_HASH_KEY = h;
@@ -405,16 +419,30 @@ function resolveDevicePayload() {
 function getForegroundLabel() {
   var pkg = "";
   try {
-    pkg = currentPackage() || "";
+    pkg = String(currentPackage() || "").trim();
   } catch (e) {}
-  var act = "";
-  try {
-    act = currentActivity() || "";
-  } catch (e) {}
+  var appName = "";
+  if (pkg) {
+    try {
+      if (typeof app.getAppName === "function") {
+        appName = trim(app.getAppName(pkg));
+      }
+    } catch (e2) {}
+  }
+  if (!appName) {
+    appName = pkg || "";
+  }
   return {
     process_name: pkg || "unknown",
-    process_title: act || "",
+    process_title: appName,
   };
+}
+
+function debugLog(msg) {
+  if (!DEBUG_MODE) {
+    return;
+  }
+  log("[waken-wa debug] " + String(msg));
 }
 
 function postActivity(body) {
@@ -518,6 +546,7 @@ function startReporting() {
           postActivity(buildBody(fg.process_name, fg.process_title));
           lastReportAt = now;
           log("已上报活动：" + fg.process_name);
+          debugLog("report process=" + fg.process_name + " title=" + fg.process_title);
         } else if (heartbeatMsRun > 0 && now - lastReportAt >= heartbeatMsRun) {
           postActivity(buildBody(fg.process_name, fg.process_title));
           lastReportAt = now;
