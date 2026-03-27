@@ -5,7 +5,7 @@ package foreground
 import "testing"
 
 // macOS snapshot uses frontmost app name only; ProcessTitle is not filled yet.
-// True "now playing" would need MPNowPlayingInfoCenter / MRMediaRemote or similar (not in this repo).
+// System now-playing metadata is in internal/platform/media (MediaRemote when CGO is enabled).
 func TestGetSnapshot_Darwin_FrontmostApplicationName(t *testing.T) {
 	snap, err := GetSnapshot()
 	if err != nil {

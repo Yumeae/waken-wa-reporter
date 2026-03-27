@@ -9,7 +9,7 @@ import (
 	"github.com/MoYoez/waken-wa/internal/platform/win32"
 )
 
-// This repo does not use Windows Media Session / Global System Media Transport Controls.
+// Foreground title is separate from GSMTC; see internal/platform/media for system now-playing metadata.
 // Many players still put track info in the foreground window title; we verify that path works.
 func TestGetSnapshot_Windows_ForegroundExecutableAndTitle(t *testing.T) {
 	snap, err := GetSnapshot()

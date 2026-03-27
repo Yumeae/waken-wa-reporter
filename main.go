@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"log"
+	"maps"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,7 +17,29 @@ import (
 	"github.com/MoYoez/waken-wa/internal/activity"
 	"github.com/MoYoez/waken-wa/internal/config"
 	"github.com/MoYoez/waken-wa/internal/platform/foreground"
+	"github.com/MoYoez/waken-wa/internal/platform/media"
 )
+
+// formatMediaForLog returns a short single-line summary for logs, or "" if nothing to show.
+func formatMediaForLog(m media.Info) string {
+	if m.IsEmpty() {
+		return ""
+	}
+	var parts []string
+	if t := strings.TrimSpace(m.Title); t != "" {
+		parts = append(parts, t)
+	}
+	if a := strings.TrimSpace(m.Artist); a != "" {
+		parts = append(parts, a)
+	}
+	if al := strings.TrimSpace(m.Album); al != "" {
+		parts = append(parts, al)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " — ")
+}
 
 func main() {
 	setup := flag.Bool("setup", false, "run interactive setup (URL + API token), save, and exit")
@@ -73,14 +97,17 @@ func main() {
 	}
 
 	meta := map[string]any{"source": "waken-wa"}
+	if path, err := config.DefaultFilePath(); err == nil {
+		if f, err := config.Load(path); err == nil && f.Metadata != nil {
+			activity.MergeMetadata(meta, f.Metadata)
+		}
+	}
 	if s := os.Getenv("WAKEN_METADATA"); s != "" {
 		var extra map[string]any
 		if err := json.Unmarshal([]byte(s), &extra); err != nil {
 			log.Fatalf("WAKEN_METADATA: %v", err)
 		}
-		for k, v := range extra {
-			meta[k] = v
-		}
+		activity.MergeMetadata(meta, extra)
 	}
 
 	deviceType := strings.TrimSpace(os.Getenv("WAKEN_DEVICE_TYPE"))
@@ -119,10 +146,20 @@ func main() {
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
 
-	var last *foreground.Snapshot
+	type lastState struct {
+		snap     foreground.Snapshot
+		mediaSig string
+	}
+	var last *lastState
 	var lastReport time.Time
 
-	report := func(snap foreground.Snapshot, heartbeat bool) bool {
+	report := func(snap foreground.Snapshot, minfo media.Info, merr error, heartbeat bool) bool {
+		reportMeta := maps.Clone(meta)
+		if merr == nil && !minfo.IsEmpty() {
+			activity.MergeMetadata(reportMeta, map[string]any{"media": minfo.AsMap()})
+		} else if merr != nil && !errors.Is(merr, media.ErrNoMedia) && !errors.Is(merr, media.ErrUnsupported) {
+			log.Printf("media: %v", merr)
+		}
 		err := client.Post(ctx, activity.ReportRequest{
 			GeneratedHashKey: generatedHashKey,
 			Device:           device,
@@ -132,27 +169,40 @@ func main() {
 			ProcessTitle:     snap.ProcessTitle,
 			BatteryLevel:     batteryLevel,
 			PushMode:         pushMode,
-			Metadata:         meta,
+			Metadata:         reportMeta,
 		})
 		if err != nil {
 			log.Printf("report failed: %v", err)
 			return false
 		}
+		mediaSuffix := ""
+		if merr == nil {
+			if s := formatMediaForLog(minfo); s != "" {
+				mediaSuffix = " | media: " + s
+			}
+		}
 		if heartbeat {
-			log.Printf("activity heartbeat: %s", snap.ProcessName)
+			log.Printf("activity heartbeat: %s%s", snap.ProcessName, mediaSuffix)
 		} else {
-			log.Printf("activity reported: %s", snap.ProcessName)
+			log.Printf("activity reported: %s%s", snap.ProcessName, mediaSuffix)
 		}
 		return true
+	}
+
+	mediaSignature := func(minfo media.Info, merr error) string {
+		if merr != nil || minfo.IsEmpty() {
+			return ""
+		}
+		return minfo.Signature()
 	}
 
 	if snap, err := foreground.GetSnapshot(); err != nil {
 		log.Printf("foreground: %v", err)
 	} else {
-		cp := snap
-		last = &cp
+		minfo, merr := media.GetNowPlaying()
+		last = &lastState{snap: snap, mediaSig: mediaSignature(minfo, merr)}
 		lastReport = time.Now()
-		report(snap, false)
+		report(snap, minfo, merr, false)
 	}
 
 	for {
@@ -166,18 +216,22 @@ func main() {
 				log.Printf("foreground: %v", err)
 				continue
 			}
-			same := last != nil && last.ProcessName == snap.ProcessName && last.ProcessTitle == snap.ProcessTitle
+			minfo, merr := media.GetNowPlaying()
+			sig := mediaSignature(minfo, merr)
+			same := last != nil &&
+				last.snap.ProcessName == snap.ProcessName &&
+				last.snap.ProcessTitle == snap.ProcessTitle &&
+				last.mediaSig == sig
 			if same {
 				if heartbeatEnabled && time.Since(lastReport) >= heartbeat {
-					if report(snap, true) {
+					if report(snap, minfo, merr, true) {
 						lastReport = time.Now()
 					}
 				}
 				continue
 			}
-			cp := snap
-			last = &cp
-			if report(snap, false) {
+			last = &lastState{snap: snap, mediaSig: sig}
+			if report(snap, minfo, merr, false) {
 				lastReport = time.Now()
 			}
 		}

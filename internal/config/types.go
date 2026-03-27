@@ -11,6 +11,9 @@ type File struct {
 	// HeartbeatIntervalMs: max silence before re-reporting same foreground; nil → default;
 	// explicit 0 disables heartbeat (matches WAKEN_HEARTBEAT_INTERVAL=0).
 	HeartbeatIntervalMs *int `json:"heartbeat_interval_ms,omitempty"`
+	// Metadata: optional JSON object merged into activity reports (see activity.MergeMetadata;
+	// WAKEN_METADATA env overrides / extends this, with shallow merge and one-level media merge).
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 type remoteConfig struct {
