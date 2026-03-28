@@ -5,7 +5,7 @@ package foreground
 import (
 	"errors"
 
-	"github.com/MoYoez/waken-wa/internal/platform/darwin"
+	"github.com/MoYoez/waken-wa-reporter/internal/platform/darwin"
 )
 
 // GetSnapshot returns the frontmost application name. ProcessTitle is empty until a window-title source is added.

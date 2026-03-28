@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/MoYoez/waken-wa/internal/activity"
-	"github.com/MoYoez/waken-wa/internal/config"
-	"github.com/MoYoez/waken-wa/internal/platform/foreground"
-	"github.com/MoYoez/waken-wa/internal/platform/media"
+	"github.com/MoYoez/waken-wa-reporter/internal/activity"
+	"github.com/MoYoez/waken-wa-reporter/internal/config"
+	"github.com/MoYoez/waken-wa-reporter/internal/platform/foreground"
+	"github.com/MoYoez/waken-wa-reporter/internal/platform/media"
 )
 
 // formatMediaForLog returns a short single-line summary for logs, or "" if nothing to show.

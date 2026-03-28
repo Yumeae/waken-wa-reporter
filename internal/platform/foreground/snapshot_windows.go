@@ -5,7 +5,7 @@ package foreground
 import (
 	"errors"
 
-	"github.com/MoYoez/waken-wa/internal/platform/win32"
+	"github.com/MoYoez/waken-wa-reporter/internal/platform/win32"
 )
 
 // GetSnapshot returns the foreground window's process executable name and window title.

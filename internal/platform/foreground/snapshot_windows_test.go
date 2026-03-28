@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MoYoez/waken-wa/internal/platform/win32"
+	"github.com/MoYoez/waken-wa-reporter/internal/platform/win32"
 )
 
 // Foreground title is separate from GSMTC; see internal/platform/media for system now-playing metadata.

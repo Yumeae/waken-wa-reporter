@@ -1,4 +1,4 @@
-module github.com/MoYoez/waken-wa
+module github.com/MoYoez/waken-wa-reporter
 
 go 1.25.5
 
