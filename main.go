@@ -15,9 +15,13 @@ import (
 	"time"
 
 	"github.com/MoYoez/waken-wa-reporter/internal/activity"
+	"github.com/MoYoez/waken-wa-reporter/internal/background"
+	"github.com/MoYoez/waken-wa-reporter/internal/cliutil"
 	"github.com/MoYoez/waken-wa-reporter/internal/config"
+	"github.com/MoYoez/waken-wa-reporter/internal/openurl"
 	"github.com/MoYoez/waken-wa-reporter/internal/platform/foreground"
 	"github.com/MoYoez/waken-wa-reporter/internal/platform/media"
+	"golang.org/x/term"
 )
 
 // formatMediaForLog returns a short single-line summary for logs, or "" if nothing to show.
@@ -41,9 +45,51 @@ func formatMediaForLog(m media.Info) string {
 	return strings.Join(parts, " — ")
 }
 
+func resolveApprovalRetryInterval() time.Duration {
+	s := strings.TrimSpace(os.Getenv("WAKEN_APPROVAL_RETRY_INTERVAL"))
+	if s == "" {
+		return 45 * time.Second
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil || d < 5*time.Second {
+		return 45 * time.Second
+	}
+	return d
+}
+
+func maybeWriteApprovalURLFile(url string) {
+	path := strings.TrimSpace(os.Getenv("WAKEN_APPROVAL_URL_FILE"))
+	if path == "" || url == "" {
+		return
+	}
+	if err := os.WriteFile(path, []byte(url+"\n"), 0o600); err != nil {
+		log.Printf("approval: could not write %s: %v", path, err)
+	}
+}
+
+func maybeOpenApprovalURL(url string) {
+	if strings.TrimSpace(os.Getenv("WAKEN_OPEN_APPROVAL")) != "1" {
+		return
+	}
+	if err := openurl.InBrowser(url); err != nil {
+		log.Printf("approval: could not open browser: %v", err)
+	}
+}
+
 func main() {
 	setup := flag.Bool("setup", false, "run interactive setup (URL + API token), save, and exit")
+	runInBackground := flag.Bool("background", false, "detach from terminal and run in background (no tray; see README)")
 	flag.Parse()
+
+	isBackgroundChild := os.Getenv("WAKEN_BACKGROUND_CHILD") != ""
+
+	if !isBackgroundChild && *runInBackground {
+		if err := background.SpawnDetached(os.Args[1:]); err != nil {
+			log.Fatalf("background: %v", err)
+		}
+		os.Exit(0)
+	}
+
 	if *setup {
 		path, err := config.DefaultFilePath()
 		if err != nil {
@@ -139,6 +185,7 @@ func main() {
 	}
 
 	client := &activity.Client{BaseURL: baseURL, Token: token}
+	approvalEvery := resolveApprovalRetryInterval()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -153,7 +200,29 @@ func main() {
 	var last *lastState
 	var lastReport time.Time
 
-	report := func(snap foreground.Snapshot, minfo media.Info, merr error, heartbeat bool) bool {
+	var pendingMode bool
+	var lastPendingRetry time.Time
+	var bannerShown bool
+
+	enterPending := func(p *activity.PendingApprovalError) {
+		pendingMode = true
+		lastPendingRetry = time.Now()
+		if p.Message != "" {
+			log.Printf("approval: %s", p.Message)
+		}
+		if !bannerShown {
+			if term.IsTerminal(int(os.Stdout.Fd())) {
+				cliutil.PrintApprovalBanner(p.ApprovalURL)
+			} else {
+				log.Printf("approval URL (non-TTY): %s", p.ApprovalURL)
+			}
+			bannerShown = true
+		}
+		maybeWriteApprovalURLFile(p.ApprovalURL)
+		maybeOpenApprovalURL(p.ApprovalURL)
+	}
+
+	postReport := func(snap foreground.Snapshot, minfo media.Info, merr error, heartbeat bool) error {
 		reportMeta := maps.Clone(meta)
 		if merr == nil && !minfo.IsEmpty() {
 			activity.MergeMetadata(reportMeta, map[string]any{"media": minfo.AsMap()})
@@ -172,8 +241,12 @@ func main() {
 			Metadata:         reportMeta,
 		})
 		if err != nil {
+			var p *activity.PendingApprovalError
+			if errors.As(err, &p) {
+				return err
+			}
 			log.Printf("report failed: %v", err)
-			return false
+			return err
 		}
 		mediaSuffix := ""
 		if merr == nil {
@@ -186,7 +259,7 @@ func main() {
 		} else {
 			log.Printf("activity reported: %s%s", snap.ProcessName, mediaSuffix)
 		}
-		return true
+		return nil
 	}
 
 	mediaSignature := func(minfo media.Info, merr error) string {
@@ -200,9 +273,15 @@ func main() {
 		log.Printf("foreground: %v", err)
 	} else {
 		minfo, merr := media.GetNowPlaying()
-		last = &lastState{snap: snap, mediaSig: mediaSignature(minfo, merr)}
-		lastReport = time.Now()
-		report(snap, minfo, merr, false)
+		sig := mediaSignature(minfo, merr)
+		last = &lastState{snap: snap, mediaSig: sig}
+		err := postReport(snap, minfo, merr, false)
+		var p *activity.PendingApprovalError
+		if errors.As(err, &p) {
+			enterPending(p)
+		} else if err == nil {
+			lastReport = time.Now()
+		}
 	}
 
 	for {
@@ -211,6 +290,32 @@ func main() {
 			log.Println("shutting down")
 			return
 		case <-ticker.C:
+			if pendingMode {
+				if time.Since(lastPendingRetry) < approvalEvery {
+					continue
+				}
+				lastPendingRetry = time.Now()
+				snap, err := foreground.GetSnapshot()
+				if err != nil {
+					log.Printf("foreground: %v", err)
+					continue
+				}
+				minfo, merr := media.GetNowPlaying()
+				err = postReport(snap, minfo, merr, false)
+				var p *activity.PendingApprovalError
+				if errors.As(err, &p) {
+					continue
+				}
+				if err != nil {
+					continue
+				}
+				pendingMode = false
+				log.Println("device approved; resuming normal reporting")
+				last = &lastState{snap: snap, mediaSig: mediaSignature(minfo, merr)}
+				lastReport = time.Now()
+				continue
+			}
+
 			snap, err := foreground.GetSnapshot()
 			if err != nil {
 				log.Printf("foreground: %v", err)
@@ -224,14 +329,26 @@ func main() {
 				last.mediaSig == sig
 			if same {
 				if heartbeatEnabled && time.Since(lastReport) >= heartbeat {
-					if report(snap, minfo, merr, true) {
+					err := postReport(snap, minfo, merr, true)
+					var p *activity.PendingApprovalError
+					if errors.As(err, &p) {
+						enterPending(p)
+						continue
+					}
+					if err == nil {
 						lastReport = time.Now()
 					}
 				}
 				continue
 			}
 			last = &lastState{snap: snap, mediaSig: sig}
-			if report(snap, minfo, merr, false) {
+			err = postReport(snap, minfo, merr, false)
+			var p *activity.PendingApprovalError
+			if errors.As(err, &p) {
+				enterPending(p)
+				continue
+			}
+			if err == nil {
 				lastReport = time.Now()
 			}
 		}

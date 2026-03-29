@@ -2,6 +2,7 @@ package activity
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -21,6 +22,30 @@ type ReportRequest struct {
 type apiResponse struct {
 	Success bool            `json:"success"`
 	Data    json.RawMessage `json:"data"`
+}
+
+// pendingResponse matches the server JSON when the device is awaiting admin approval (HTTP 202).
+type pendingResponse struct {
+	Success     bool   `json:"success"`
+	Pending     bool   `json:"pending"`
+	ApprovalURL string `json:"approvalUrl"`
+	Error       string `json:"error"`
+}
+
+// PendingApprovalError is returned when POST /api/activity responds 202 (device not yet approved).
+type PendingApprovalError struct {
+	ApprovalURL string
+	Message     string
+}
+
+func (e *PendingApprovalError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Message != "" {
+		return fmt.Sprintf("activity: pending approval: %s", e.Message)
+	}
+	return "activity: pending approval"
 }
 
 // Client posts activity events to the configured server.

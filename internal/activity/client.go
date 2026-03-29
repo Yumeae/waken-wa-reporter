@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// ErrNilPending is returned when the server sends 202 without a usable approval URL.
+var ErrNilPending = fmt.Errorf("activity: pending response missing approvalUrl")
+
 const defaultPath = "/api/activity"
 
 // Post sends one activity report. Accepts HTTP 200/201 with success JSON.
@@ -60,6 +63,20 @@ func (c *Client) Post(ctx context.Context, req ReportRequest) error {
 			return fmt.Errorf("activity: server returned 201 but success=false")
 		}
 		return nil
+	case http.StatusAccepted:
+		var pend pendingResponse
+		if err := json.Unmarshal(raw, &pend); err != nil {
+			return fmt.Errorf("activity: decode 202 body: %w", err)
+		}
+		if !pend.Pending {
+			return fmt.Errorf("activity: unexpected 202 without pending=true: %s", strings.TrimSpace(string(raw)))
+		}
+		url := strings.TrimSpace(pend.ApprovalURL)
+		if url == "" {
+			return ErrNilPending
+		}
+		msg := strings.TrimSpace(pend.Error)
+		return &PendingApprovalError{ApprovalURL: url, Message: msg}
 	case http.StatusUnauthorized:
 		return fmt.Errorf("activity: 401 unauthorized (invalid or disabled token)")
 	case http.StatusBadRequest:
