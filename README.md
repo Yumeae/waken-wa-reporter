@@ -2,20 +2,24 @@
 
 适用于 [Waken-Wa](https://github.com/MoYoez/Waken-Wa) 的桌面端 **Activity Reporter**：周期性采集当前前台应用与（在支持的系统上）正在播放的媒体信息，并上报到 Waken-Wa 后端 `POST /api/activity`。
 
+也有适用于 Auto.js 的 **Android** 版本（能力见下表）。
+
 ## 平台兼容
 
 以下为 **官方支持** 的能力范围（与实现一致）。
 
-| 能力 | Windows | macOS |
-|------|:-------:|:-----:|
-| 前台进程名（`process_name`） | ✅ | ✅ |
-| 窗口标题（`process_title`） | ✅ | ❌ |
-| 正在播放（`metadata.media`） | ✅ | ❌ |
+| 能力 | Windows | macOS | Android |
+|------|:-------:|:-----:|:-------:|
+| 程序名 / 前台进程名（`process_name`） | ✅ | ✅ | ✅ |
+| 窗口标题（`process_title`） | ✅ | ❌ | ❌ |
+| 正在播放（`metadata.media`） | ✅ | ❌ | ❌ |
+| 电量（battery） | ❌ | ❌ | ✅ |
 
 说明：
 
 - **Windows**：前台进程名、窗口标题均支持。**正在播放**（`metadata.media`）依赖 **SMTC**（System Media Transport Controls，系统媒体传输控件）：播放器需向系统媒体会话公开元数据（例如多数现代浏览器、Spotify、系统「正在播放」浮层能显示的应用）；未接入 SMTC 的应用无法提供曲目信息。
 - **macOS**：仅支持 **前台进程 / 应用名**；窗口标题留空；不包含「正在播放」媒体信息。
+- **Android**（Auto.js 等）：支持 **当前前台应用名**（`process_name`）与 **电量** 上报；窗口标题与系统级「正在播放」媒体元数据不在此列能力内。
 
 
 ## 环境要求
