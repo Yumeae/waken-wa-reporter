@@ -14,6 +14,9 @@ type File struct {
 	// Metadata: optional JSON object merged into activity reports (see activity.MergeMetadata;
 	// WAKEN_METADATA env overrides / extends this, with shallow merge and one-level media merge).
 	Metadata map[string]any `json:"metadata,omitempty"`
+	// BypassSystemProxy: when true, HTTP_PROXY/HTTPS_PROXY are not used (direct outbound).
+	// Env WAKEN_BYPASS_SYSTEM_PROXY overrides the file when set.
+	BypassSystemProxy bool `json:"bypass_system_proxy,omitempty"`
 }
 
 type remoteConfig struct {

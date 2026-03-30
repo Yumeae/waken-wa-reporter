@@ -189,7 +189,14 @@ func main() {
 		batteryLevel = &v
 	}
 
+	bypassProxy, err := config.ResolveBypassSystemProxy()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
 	client := &activity.Client{BaseURL: baseURL, Token: token}
+	if bypassProxy {
+		client.HTTPClient = activity.HTTPClientBypassProxy()
+	}
 	approvalEvery := resolveApprovalRetryInterval()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

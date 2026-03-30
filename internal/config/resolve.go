@@ -161,6 +161,26 @@ func ResolvePollInterval() (time.Duration, error) {
 	return EffectivePollInterval(f), nil
 }
 
+// ResolveBypassSystemProxy: env WAKEN_BYPASS_SYSTEM_PROXY (ParseBool) overrides; else config file flag; else false.
+func ResolveBypassSystemProxy() (bool, error) {
+	if s := strings.TrimSpace(os.Getenv("WAKEN_BYPASS_SYSTEM_PROXY")); s != "" {
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			return false, fmt.Errorf("WAKEN_BYPASS_SYSTEM_PROXY: %w", err)
+		}
+		return b, nil
+	}
+	path, err := DefaultFilePath()
+	if err != nil {
+		return false, nil
+	}
+	f, err := Load(path)
+	if err != nil {
+		return false, nil
+	}
+	return f.BypassSystemProxy, nil
+}
+
 // ResolveHeartbeatInterval: env WAKEN_HEARTBEAT_INTERVAL overrides; else config file; else default.
 func ResolveHeartbeatInterval() (d time.Duration, enabled bool, err error) {
 	if s := strings.TrimSpace(os.Getenv("WAKEN_HEARTBEAT_INTERVAL")); s != "" {

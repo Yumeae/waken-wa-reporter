@@ -67,6 +67,17 @@ go build -o waken-wa-reporter .
 
 环境变量使用 Go `time.ParseDuration`（如 `2s`、`45s`、`1m`）；配置文件使用 `pollIntervalMs`、`heartbeatIntervalMs`（毫秒）。
 
+### 代理（HTTP_PROXY）
+
+默认使用 Go `http.DefaultTransport`，会读取环境变量 **`HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`**（与其它工具一致）。
+
+若希望**始终直连、忽略系统代理**，可设置：
+
+- 环境变量 **`WAKEN_BYPASS_SYSTEM_PROXY=true`**（或 `1`；`false` / `0` 关闭），或
+- 配置文件 JSON 字段 **`"bypass_system_proxy": true`**
+
+优先级：**环境变量 > 配置文件**；未设置时与默认行为一致（仍走代理环境变量）。
+
 ### 设备待审核（HTTP 202）
 
 当站点关闭「自动接收新设备」且本机 `generatedHashKey` 尚未在后台通过审核时，接口返回 **202**，正文含 `approvalUrl`。Reporter 会：
