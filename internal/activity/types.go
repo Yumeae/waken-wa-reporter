@@ -15,6 +15,7 @@ type ReportRequest struct {
 	ProcessName      string         `json:"process_name"`
 	ProcessTitle     string         `json:"process_title,omitempty"`
 	BatteryLevel     *int           `json:"battery_level,omitempty"`
+	IsCharging       *bool          `json:"is_charging,omitempty"`
 	PushMode         string         `json:"push_mode,omitempty"`
 	Metadata         map[string]any `json:"metadata,omitempty"`
 }

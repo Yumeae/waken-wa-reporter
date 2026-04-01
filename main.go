@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"maps"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"github.com/MoYoez/waken-wa-reporter/internal/config"
 	"github.com/MoYoez/waken-wa-reporter/internal/platform/foreground"
 	"github.com/MoYoez/waken-wa-reporter/internal/platform/media"
+	"github.com/MoYoez/waken-wa-reporter/internal/platform/power"
 	"golang.org/x/term"
 )
 
@@ -189,6 +191,8 @@ func main() {
 		batteryLevel = &v
 	}
 
+	isCharging := power.IsCharging()
+
 	bypassProxy, err := config.ResolveBypassSystemProxy()
 	if err != nil {
 		log.Fatalf("config: %v", err)
@@ -238,6 +242,9 @@ func main() {
 		reportMeta := maps.Clone(meta)
 		if merr == nil && !minfo.IsEmpty() {
 			activity.MergeMetadata(reportMeta, map[string]any{"media": minfo.AsMap()})
+			if v, ok := reportMeta["play_source"]; !ok || strings.TrimSpace(fmt.Sprint(v)) == "" {
+				reportMeta["play_source"] = "system_media"
+			}
 		} else if merr != nil && !errors.Is(merr, media.ErrNoMedia) && !errors.Is(merr, media.ErrUnsupported) {
 			log.Printf("media: %v", merr)
 		}
@@ -249,6 +256,7 @@ func main() {
 			ProcessName:      snap.ProcessName,
 			ProcessTitle:     snap.ProcessTitle,
 			BatteryLevel:     batteryLevel,
+			IsCharging:       isCharging,
 			PushMode:         pushMode,
 			Metadata:         reportMeta,
 		})
