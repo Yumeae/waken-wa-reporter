@@ -243,7 +243,11 @@ func main() {
 		if merr == nil && !minfo.IsEmpty() {
 			activity.MergeMetadata(reportMeta, map[string]any{"media": minfo.AsMap()})
 			if v, ok := reportMeta["play_source"]; !ok || strings.TrimSpace(fmt.Sprint(v)) == "" {
-				reportMeta["play_source"] = "system_media"
+				if sourceAppID := strings.TrimSpace(minfo.SourceAppID); sourceAppID != "" {
+					reportMeta["play_source"] = sourceAppID
+				} else {
+					reportMeta["play_source"] = "system_media"
+				}
 			}
 		} else if merr != nil && !errors.Is(merr, media.ErrNoMedia) && !errors.Is(merr, media.ErrUnsupported) {
 			log.Printf("媒体信息：%v", merr)

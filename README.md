@@ -17,7 +17,7 @@
 
 说明：
 
-- **Windows**：前台进程名、窗口标题均支持。**正在播放**（`metadata.media`）依赖 **SMTC**（System Media Transport Controls，系统媒体传输控件）：播放器需向系统媒体会话公开元数据（例如多数现代浏览器、Spotify、系统「正在播放」浮层能显示的应用）；未接入 SMTC 的应用无法提供曲目信息。
+- **Windows**：前台进程名、窗口标题均支持。**正在播放**（`metadata.media`）依赖 **SMTC**（System Media Transport Controls，系统媒体传输控件）：播放器需向系统媒体会话公开元数据（例如多数现代浏览器、Spotify、系统「正在播放」浮层能显示的应用）；未接入 SMTC 的应用无法提供曲目信息。Reporter 默认先走原生 WinRT 读取，失败时会自动回退到 PowerShell 读取系统媒体会话，以提高媒体元数据上报成功率。
 - **macOS**：仅支持 **前台进程 / 应用名**；窗口标题留空；不包含「正在播放」媒体信息。`is_charging` 需要以 cgo 构建（默认 CI 构建已启用）。
 - **Android**（Auto.js 等）：支持 **当前前台应用名**（`process_name`）、**电量**（`battery_level`）与 **充电状态**（`is_charging`，来自系统电池广播）；窗口标题与系统级「正在播放」媒体元数据不在此列能力内。
 

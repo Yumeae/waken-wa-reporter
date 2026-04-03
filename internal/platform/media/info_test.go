@@ -17,13 +17,17 @@ func TestInfo_Signature(t *testing.T) {
 	if g, w := (Info{}).Signature(), ""; g != w {
 		t.Fatalf("empty sig: got %q want %q", g, w)
 	}
-	i := Info{Title: "T", Artist: "A", Album: "L"}
+	i := Info{Title: "T", Artist: "A", Album: "L", SourceAppID: "spotify"}
 	if i.Signature() == "" {
 		t.Fatal("expected non-empty signature")
 	}
-	i2 := Info{Title: "T", Artist: "A", Album: "L"}
+	i2 := Info{Title: "T", Artist: "A", Album: "L", SourceAppID: "spotify"}
 	if i.Signature() != i2.Signature() {
 		t.Fatal("signature must be stable")
+	}
+	i3 := Info{Title: "T", Artist: "A", Album: "L", SourceAppID: "chrome"}
+	if i.Signature() == i3.Signature() {
+		t.Fatal("signature must change when source app changes")
 	}
 }
 

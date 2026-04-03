@@ -65,9 +65,7 @@ func waitAsyncCompleted(op *foundation.IAsyncOperation, timeout time.Duration) e
 	}
 }
 
-// GetNowPlaying reads the current Global System Media Transport session (Windows 10+).
-// May fail when COM is unavailable or when running in unsupported sessions (e.g. some service accounts).
-func GetNowPlaying() (Info, error) {
+func getNowPlayingWinRT() (Info, error) {
 	if err := ensureCOM(); err != nil {
 		return Info{}, err
 	}
@@ -100,6 +98,11 @@ func GetNowPlaying() (Info, error) {
 	}
 	defer session.Release()
 
+	var out Info
+	if sourceAppID, err := session.GetSourceAppUserModelId(); err == nil {
+		out.SourceAppID = sourceAppID
+	}
+
 	propAsync, err := session.TryGetMediaPropertiesAsync()
 	if err != nil {
 		return Info{}, err
@@ -119,7 +122,6 @@ func GetNowPlaying() (Info, error) {
 	props := (*control.GlobalSystemMediaTransportControlsSessionMediaProperties)(unsafe.Pointer(propPtr))
 	defer props.Release()
 
-	var out Info
 	if t, err := props.GetTitle(); err == nil {
 		out.Title = t
 	}
@@ -133,4 +135,22 @@ func GetNowPlaying() (Info, error) {
 		return Info{}, ErrNoMedia
 	}
 	return out, nil
+}
+
+// GetNowPlaying reads the current Global System Media Transport session (Windows 10+).
+// It prefers the native WinRT path and falls back to PowerShell when native interop fails
+// or returns no active media metadata.
+func GetNowPlaying() (Info, error) {
+	info, err := getNowPlayingWinRT()
+	if err == nil {
+		return info, nil
+	}
+	psInfo, psErr := getNowPlayingViaPowerShell()
+	if psErr == nil {
+		return psInfo, nil
+	}
+	if errors.Is(err, ErrNoMedia) {
+		return Info{}, psErr
+	}
+	return Info{}, fmt.Errorf("media: native=%v; powershell=%v", err, psErr)
 }

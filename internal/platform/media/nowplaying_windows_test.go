@@ -18,5 +18,5 @@ func TestGetNowPlaying_Windows(t *testing.T) {
 	if info.IsEmpty() {
 		t.Fatal("non-error result must be non-empty")
 	}
-	t.Logf("media title=%q artist=%q album=%q", info.Title, info.Artist, info.Album)
+	t.Logf("media title=%q artist=%q album=%q sourceAppID=%q", info.Title, info.Artist, info.Album, info.SourceAppID)
 }

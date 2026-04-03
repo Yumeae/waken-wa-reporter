@@ -13,9 +13,10 @@ var ErrNoMedia = errors.New("media: no active media metadata")
 
 // Info holds normalized now-playing fields for activity metadata.
 type Info struct {
-	Title  string
-	Artist string
-	Album  string
+	Title       string
+	Artist      string
+	Album       string
+	SourceAppID string
 }
 
 // IsEmpty reports whether all fields are empty after trimming.
@@ -30,7 +31,7 @@ func (i Info) Signature() string {
 	if i.IsEmpty() {
 		return ""
 	}
-	return strings.TrimSpace(i.Title) + "\x1e" + strings.TrimSpace(i.Artist) + "\x1e" + strings.TrimSpace(i.Album)
+	return strings.TrimSpace(i.Title) + "\x1e" + strings.TrimSpace(i.Artist) + "\x1e" + strings.TrimSpace(i.Album) + "\x1e" + strings.TrimSpace(i.SourceAppID)
 }
 
 // AsMap returns metadata.media-compatible keys: title, artist, album, and singer (alias of artist).
