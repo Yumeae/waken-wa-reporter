@@ -26,6 +26,107 @@ import (
 	"golang.org/x/term"
 )
 
+type stringListFlag []string
+
+func (s *stringListFlag) String() string {
+	return strings.Join(*s, ",")
+}
+
+func (s *stringListFlag) Set(value string) error {
+	*s = append(*s, value)
+	return nil
+}
+
+func printConfigFile(cfg *config.File) error {
+	if cfg == nil {
+		cfg = &config.File{}
+	}
+	body, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", body)
+	return nil
+}
+
+func applyConfigUpdate(cfg *config.File, update string) error {
+	key, value, ok := strings.Cut(update, "=")
+	if !ok {
+		return fmt.Errorf("配置项格式错误：%s（应为 key=value）", update)
+	}
+
+	key = strings.TrimSpace(key)
+	value = strings.TrimSpace(value)
+	if key == "" {
+		return fmt.Errorf("配置项格式错误：%s（key 不能为空）", update)
+	}
+
+	switch key {
+	case "base_url":
+		if value == "" {
+			cfg.BaseURL = ""
+			return nil
+		}
+		cfg.BaseURL = strings.TrimRight(value, "/")
+		return nil
+	case "api_token":
+		cfg.APIToken = value
+		return nil
+	case "device_name":
+		cfg.DeviceName = value
+		return nil
+	case "generated_hash_key":
+		cfg.GeneratedHashKey = value
+		return nil
+	case "poll_interval_ms":
+		if value == "" {
+			cfg.PollIntervalMs = nil
+			return nil
+		}
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 1 {
+			return fmt.Errorf("poll_interval_ms 必须是 >=1 的整数毫秒")
+		}
+		cfg.PollIntervalMs = &n
+		return nil
+	case "heartbeat_interval_ms":
+		if value == "" {
+			cfg.HeartbeatIntervalMs = nil
+			return nil
+		}
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 0 {
+			return fmt.Errorf("heartbeat_interval_ms 必须是 >=0 的整数毫秒")
+		}
+		cfg.HeartbeatIntervalMs = &n
+		return nil
+	case "metadata":
+		if value == "" {
+			cfg.Metadata = nil
+			return nil
+		}
+		var metadata map[string]any
+		if err := json.Unmarshal([]byte(value), &metadata); err != nil {
+			return fmt.Errorf("metadata 必须是 JSON object: %w", err)
+		}
+		cfg.Metadata = metadata
+		return nil
+	case "bypass_system_proxy":
+		if value == "" {
+			cfg.BypassSystemProxy = false
+			return nil
+		}
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("bypass_system_proxy 必须是 true/false/1/0")
+		}
+		cfg.BypassSystemProxy = b
+		return nil
+	default:
+		return fmt.Errorf("不支持的配置项：%s", key)
+	}
+}
+
 // formatMediaForLog returns a short single-line summary for logs, or "" if nothing to show.
 func formatMediaForLog(m media.Info) string {
 	if m.IsEmpty() {
@@ -95,7 +196,49 @@ func maybeOpenApprovalURL(url string) {
 
 func main() {
 	setup := flag.Bool("setup", false, "run interactive setup (URL + API token), save, and exit")
+	printConfig := flag.Bool("print-config", false, "print saved config JSON and exit")
+	var setConfig stringListFlag
+	flag.Var(&setConfig, "set-config", "update saved config with key=value and exit; repeatable")
 	flag.Parse()
+
+	if *printConfig && len(setConfig) > 0 {
+		log.Fatal("-print-config 与 -set-config 不能同时使用")
+	}
+
+	if *printConfig || len(setConfig) > 0 {
+		path, err := config.DefaultFilePath()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		cfg, err := config.Load(path)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				log.Fatal(err)
+			}
+			cfg = &config.File{}
+		}
+
+		if *printConfig {
+			if err := printConfigFile(cfg); err != nil {
+				log.Fatal(err)
+			}
+			return
+		}
+
+		for _, update := range setConfig {
+			if err := applyConfigUpdate(cfg, update); err != nil {
+				log.Fatal(err)
+			}
+		}
+		if err := config.Save(path, cfg); err != nil {
+			log.Fatal(err)
+		}
+		if err := printConfigFile(cfg); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 
 	if *setup {
 		path, err := config.DefaultFilePath()

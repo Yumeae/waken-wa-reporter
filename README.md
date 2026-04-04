@@ -54,6 +54,18 @@ go build -o waken-wa-reporter .
 ./waken-wa-reporter
 ```
 
+输出当前已保存配置：
+
+```bash
+./waken-wa-reporter -print-config
+```
+
+修改指定配置项并保存（可重复传入）：
+
+```bash
+./waken-wa-reporter -set-config base_url=https://example.com -set-config poll_interval_ms=5000
+```
+
 若未设置 Token 且无可用配置文件，且标准输入非 TTY（例如作为服务运行），程序会退出并提示先设置 `WAKEN_API_TOKEN` 或完成本地配置。
 
 ### 轮询间隔与心跳间隔
@@ -101,6 +113,25 @@ go build -o waken-wa-reporter .
 
 - Windows：`%APPDATA%\waken-wa\config.json`
 - macOS：`$XDG_CONFIG_HOME/waken-wa/config.json`（未设置时多为 `~/.config/waken-wa/config.json`）
+
+### CLI 查看 / 修改配置
+
+`-print-config` 会输出当前已保存的配置 JSON；若配置文件尚不存在，则输出空对象 `{}`。
+
+`-set-config key=value` 会修改并保存指定配置项，然后把更新后的完整 JSON 打印到标准输出。该参数可重复使用，按传入顺序依次生效。
+
+当前支持的 key：
+
+| key | 说明 |
+|------|------|
+| `base_url` | 后端根地址；会自动去掉末尾 `/` |
+| `api_token` | API Token |
+| `device_name` | 展示用设备名 |
+| `generated_hash_key` | 稳定设备身份牌 |
+| `poll_interval_ms` | 轮询间隔（毫秒，必须 `>=1`）；传空值可清除并回退默认 |
+| `heartbeat_interval_ms` | 心跳间隔（毫秒，必须 `>=0`；`0` 为关闭）；传空值可清除并回退默认 |
+| `metadata` | JSON object；如 `-set-config 'metadata={\"channel\":\"stable\"}'` |
+| `bypass_system_proxy` | `true/false/1/0`；传空值时写回 `false` |
 
 ### 常用环境变量
 
