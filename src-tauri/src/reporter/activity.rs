@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use reqwest::Client;
 
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ReportRequest {
+    #[serde(rename = "generatedHashKey")]
     pub generated_hash_key: String,
     pub device: String,
     pub device_name: String,

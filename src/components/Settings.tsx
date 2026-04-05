@@ -29,8 +29,19 @@ function Field({ label, description, children }: FieldProps) {
 const inputClass =
   "w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-colors";
 
+interface RemoteConfig {
+  endpoint?: string;
+  apiKey?: string;
+  token?: {
+    reportEndpoint?: string;
+    items?: { token?: string }[];
+  };
+}
+
 export default function Settings({ config, onSave, saving, saveMsg }: Props) {
   const [form, setForm] = useState<Config>({ ...config });
+  const [base64Input, setBase64Input] = useState("");
+  const [base64Msg, setBase64Msg] = useState<string | null>(null);
 
   const set = (key: keyof Config, value: unknown) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -41,8 +52,70 @@ export default function Settings({ config, onSave, saving, saveMsg }: Props) {
     onSave(form);
   };
 
+  const handleBase64Import = () => {
+    const raw = base64Input.trim();
+    if (!raw) return;
+    try {
+      const json: RemoteConfig = JSON.parse(atob(raw));
+      const token =
+        json.apiKey?.trim() ||
+        json.token?.items?.[0]?.token?.trim() ||
+        "";
+      if (!token) {
+        setBase64Msg("Base64 配置中未找到 apiKey 或 token");
+        return;
+      }
+      const endpoint =
+        json.endpoint?.trim() ||
+        json.token?.reportEndpoint?.trim() ||
+        "";
+      let baseUrl = "http://localhost:3000";
+      if (endpoint) {
+        baseUrl = endpoint.replace(/\/api\/activity$/, "").replace(/\/$/, "") || baseUrl;
+      }
+      setForm((prev) => ({ ...prev, base_url: baseUrl, api_token: token }));
+      setBase64Msg("导入成功，请保存配置");
+    } catch {
+      setBase64Msg("Base64 配置解析失败，请检查内容是否正确");
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="p-4 space-y-5">
+      <Field
+        label="从 Base64 导入配置"
+        description="粘贴后台一键导出的 Base64 配置，自动填充地址和 Token"
+      >
+        <div className="flex gap-2">
+          <input
+            type="text"
+            className={inputClass}
+            placeholder="粘贴 Base64 配置..."
+            value={base64Input}
+            onChange={(e) => {
+              setBase64Input(e.target.value);
+              setBase64Msg(null);
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleBase64Import}
+            className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+          >
+            导入
+          </button>
+        </div>
+        {base64Msg && (
+          <p
+            className={`text-xs mt-1 ${
+              base64Msg.startsWith("导入成功") ? "text-green-400" : "text-red-400"
+            }`}
+          >
+            {base64Msg}
+          </p>
+        )}
+      </Field>
+
       <Field
         label="后端地址"
         description="Waken-Wa 后端的根地址（不含末尾 /）"
