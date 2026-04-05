@@ -69,11 +69,14 @@ export default function Settings({ config, onSave, saving, saveMsg }: Props) {
         json.endpoint?.trim() ||
         json.token?.reportEndpoint?.trim() ||
         "";
-      let baseUrl = "http://localhost:3000";
+      const updates: Partial<Config> = { api_token: token };
       if (endpoint) {
-        baseUrl = endpoint.replace(/\/api\/activity$/, "").replace(/\/$/, "") || baseUrl;
+        const stripped = endpoint.replace(/\/api\/activity$/, "").replace(/\/$/, "");
+        if (stripped) {
+          updates.base_url = stripped;
+        }
       }
-      setForm((prev) => ({ ...prev, base_url: baseUrl, api_token: token }));
+      setForm((prev) => ({ ...prev, ...updates }));
       setBase64Msg("导入成功，请保存配置");
     } catch {
       setBase64Msg("Base64 配置解析失败，请检查内容是否正确");
