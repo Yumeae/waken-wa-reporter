@@ -2,7 +2,9 @@
 
 适用于 [Waken-Wa](https://github.com/MoYoez/Waken-Wa) 的桌面端 **Activity Reporter**：周期性采集当前前台应用与（在支持的系统上）正在播放的媒体信息，并上报到 Waken-Wa 后端 `POST /api/activity`。
 
-也有适用于 Auto.js 的 **Android** 版本（能力见下表）。
+> 此版本 为 Go 编写的 CLI 版本，如果您在寻找 Desktop 界面的版本，请参考 [Tauri-Desktop](https://github.com/MoYoez/waken-wa-reporter/tree/tauri-desktop) 
+
+> 也有适用于 Auto.js 的 **Android** 版本（能力见下表）。
 
 ## 平台兼容
 
