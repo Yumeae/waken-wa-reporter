@@ -22,7 +22,9 @@ pub fn get_now_playing() -> Option<MediaInfo> {
 
 #[cfg(target_os = "windows")]
 fn get_now_playing_windows() -> Option<MediaInfo> {
+    use std::os::windows::process::CommandExt;
     use std::process::Command;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     let script = r#"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -41,6 +43,7 @@ $info = $infoTask.Result
 "#;
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .ok()?;
     if !output.status.success() {

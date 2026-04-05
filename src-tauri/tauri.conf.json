@@ -22,13 +22,7 @@
         "visible": true,
         "center": true
       }
-    ],
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "tooltip": "Waken-Wa Reporter",
-      "iconAsTemplate": true,
-      "menuOnLeftClick": false
-    }
+    ]
   },
   "bundle": {
     "active": true,
