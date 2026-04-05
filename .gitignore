@@ -1,2 +1,8 @@
 *.exe
 waken-wa.exe
+
+# Tauri / Node
+node_modules/
+dist/
+src-tauri/target/
+.tauri/
