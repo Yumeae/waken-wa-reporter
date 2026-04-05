@@ -11,6 +11,7 @@
 
   html, body {
     @apply bg-slate-900 text-white h-full;
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif;
     user-select: none;
     -webkit-user-select: none;
   }

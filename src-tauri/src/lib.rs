@@ -66,7 +66,7 @@ pub fn run() {
             // Start background reporter loop
             let state_clone = state.clone();
             let app_handle = app.handle().clone();
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 reporter::run_loop(state_clone, app_handle).await;
             });
 

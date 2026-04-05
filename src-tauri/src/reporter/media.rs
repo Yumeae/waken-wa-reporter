@@ -24,6 +24,8 @@ pub fn get_now_playing() -> Option<MediaInfo> {
 fn get_now_playing_windows() -> Option<MediaInfo> {
     use std::process::Command;
     let script = r#"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 $mgr = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager,Windows.Media.Control,ContentType=WindowsRuntime]
 $task = $mgr::RequestAsync()
 $task.AsTask().Wait(5000) | Out-Null
